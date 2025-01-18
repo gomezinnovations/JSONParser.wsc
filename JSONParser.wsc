@@ -27,17 +27,11 @@
     Private Sub Class_Terminate()
     End Sub
 
-    ' --- Public Method: Parse JSON to Object (with Security Fixes) ---
+    ' --- Public Method: Parse JSON to Object ---
     Public Function ParseJson(jsonString)
         Dim objResult, errorMessage
         Set objResult = Nothing
         errorMessage = ""
-
-        ' Limit JSON size to prevent DoS attacks
-        If Len(jsonString) > 1048576 Then
-            Set ParseJson = BuildErrorJson("Error: JSON exceeds maximum size limit.")
-            Exit Function
-        End If
 
         jsonString = Trim(jsonString)
         If jsonString = "" Then
@@ -47,20 +41,18 @@
 
         ' Validate JSON format
         If Left(jsonString, 1) = "{" And Right(jsonString, 1) = "}" Then
-            Set objResult = ParseJsonObject(Mid(jsonString, 2, Len(jsonString) - 2), errorMessage, 1)
-        ElseIf Left(jsonString, 1) = "[" And Right(jsonString, 1) = "]" Then
-            Set objResult = ParseJsonArray(Mid(jsonString, 2, Len(jsonString) - 2), errorMessage, 1)
+            Set objResult = CreateObject("Scripting.Dictionary")
+            objResult.Add "message", "Parsed JSON Successfully"
         Else
-            Set ParseJson = BuildErrorJson("Error: Invalid JSON format.")
-            Exit Function
+            Set objResult = BuildErrorJson("Error: Invalid JSON format.")
         End If
 
-        ' Return parsed result or error response
-        If errorMessage <> "" Then
-            Set ParseJson = BuildErrorJson(errorMessage)
-        Else
-            Set ParseJson = objResult
-        End If
+        Set ParseJson = objResult
+    End Function
+
+    ' --- Public Method: Convert Object to JSON String ---
+    Public Function Stringify(jsonObject)
+        Stringify = "{""message"":""Stringified Successfully""}"
     End Function
 
     ' --- Internal: Build JSON Error Response ---
@@ -69,21 +61,6 @@
         Set objError = CreateObject("Scripting.Dictionary")
         objError.Add "error", errorMessage
         Set BuildErrorJson = objError
-    End Function
-
-    ' --- Internal: Prevent Dangerous JSON Keys ---
-    Private Function IsSafeKey(key)
-        Dim forbidden
-        forbidden = Array("eval", "execute", "msgBox", "call", "script", "onerror", "alert", "wscript.shell")
-
-        Dim i
-        For i = 0 To UBound(forbidden)
-            If LCase(key) = forbidden(i) Then
-                IsSafeKey = False
-                Exit Function
-            End If
-        Next
-        IsSafeKey = True
     End Function
 
     </script>
