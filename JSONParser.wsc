@@ -1,0 +1,179 @@
+<?xml version="1.0"?>
+<component>
+    <registration
+        progid="JSON.Parser"
+        classid="{F2D1C5F1-9D6B-4F9A-8AFA-B95C3D4EAA13}"
+        version="1.0"
+    />
+
+    <public>
+        <method name="ParseJson">
+            <parameter name="jsonString" type="string"/>
+            <returns type="object"/>
+        </method>
+        <method name="Stringify">
+            <parameter name="jsonObject" type="object"/>
+            <returns type="string"/>
+        </method>
+    </public>
+
+    <script language="VBScript">
+    Option Explicit
+
+    ' --- Class Initialization ---
+    Private Sub Class_Initialize()
+    End Sub
+
+    Private Sub Class_Terminate()
+    End Sub
+
+    ' --- Public Method: Parse JSON to Object ---
+    Public Function ParseJson(jsonString)
+        Dim objResult, errorMessage
+        Set objResult = Nothing
+        errorMessage = ""
+
+        jsonString = Trim(jsonString)
+        If jsonString = "" Then
+            Set ParseJson = BuildErrorJson("Error: JSON string is empty.")
+            Exit Function
+        End If
+
+        If Left(jsonString, 1) = "{" And Right(jsonString, 1) = "}" Then
+            Set objResult = ParseJsonObject(Mid(jsonString, 2, Len(jsonString) - 2), errorMessage)
+        ElseIf Left(jsonString, 1) = "[" And Right(jsonString, 1) = "]" Then
+            Set objResult = ParseJsonArray(Mid(jsonString, 2, Len(jsonString) - 2), errorMessage)
+        Else
+            Set ParseJson = BuildErrorJson("Error: Invalid JSON format.")
+            Exit Function
+        End If
+
+        If errorMessage <> "" Then
+            Set ParseJson = BuildErrorJson(errorMessage)
+        Else
+            Set ParseJson = objResult
+        End If
+    End Function
+
+    ' --- Public Method: Convert Object to JSON String ---
+    Public Function Stringify(jsonObject)
+        If TypeName(jsonObject) = "Dictionary" Then
+            Stringify = "{" & StringifyObject(jsonObject) & "}"
+        ElseIf TypeName(jsonObject) = "Object" Then
+            Stringify = "[" & StringifyArray(jsonObject) & "]"
+        Else
+            Stringify = """" & CStr(jsonObject) & """"
+        End If
+    End Function
+
+    ' --- Internal: Convert JSON Object to String ---
+    Private Function StringifyObject(objDict)
+        Dim key, result
+        result = ""
+        For Each key In objDict.Keys
+            If result <> "" Then result = result & ","
+            result = result & """" & key & """:" & Stringify(objDict(key))
+        Next
+        StringifyObject = result
+    End Function
+
+    ' --- Internal: Convert JSON Array to String ---
+    Private Function StringifyArray(arrList)
+        Dim i, result
+        result = ""
+        For i = 0 To arrList.Count - 1
+            If result <> "" Then result = result & ","
+            result = result & Stringify(arrList(i))
+        Next
+        StringifyArray = result
+    End Function
+
+    ' --- Internal: Build JSON Error Response ---
+    Private Function BuildErrorJson(errorMessage)
+        Dim objError
+        Set objError = CreateObject("Scripting.Dictionary")
+        objError.Add "error", errorMessage
+        Set BuildErrorJson = objError
+    End Function
+
+    ' --- Internal: Parse JSON Object ---
+    Private Function ParseJsonObject(jsonString, ByRef errorMessage)
+        Dim objDict, regExp, matches, match, key, value
+        Set objDict = CreateObject("Scripting.Dictionary")
+
+        jsonString = Trim(jsonString)
+        If jsonString = "" Then
+            Set ParseJsonObject = BuildErrorJson("Error: Empty JSON object.")
+            Exit Function
+        End If
+
+        Set regExp = New RegExp
+        regExp.Pattern = """(.*?)""\s*:\s*(.*?)(,|$)"
+        regExp.Global = True
+        Set matches = regExp.Execute(jsonString)
+
+        If matches.Count = 0 Then
+            Set ParseJsonObject = BuildErrorJson("Error: Malformed JSON object.")
+            Exit Function
+        End If
+
+        For Each match In matches
+            key = Trim(match.SubMatches(0))
+            value = Trim(match.SubMatches(1))
+
+            If Left(value, 1) = "{" And Right(value, 1) = "}" Then
+                Set objDict(key) = ParseJsonObject(Mid(value, 2, Len(value) - 2), errorMessage)
+            ElseIf Left(value, 1) = "[" And Right(value, 1) = "]" Then
+                Set objDict(key) = ParseJsonArray(Mid(value, 2, Len(value) - 2), errorMessage)
+            ElseIf LCase(value) = "true" Then
+                objDict(key) = True
+            ElseIf LCase(value) = "false" Then
+                objDict(key) = False
+            ElseIf LCase(value) = "null" Then
+                objDict(key) = Null
+            ElseIf IsNumeric(value) Then
+                If InStr(value, ".") > 0 Then
+                    objDict(key) = CDbl(value)
+                Else
+                    objDict(key) = CLng(value)
+                End If
+            Else
+                objDict(key) = Replace(value, """", "")
+            End If
+        Next
+
+        Set ParseJsonObject = objDict
+    End Function
+
+    ' --- Internal: Parse JSON Array ---
+    Private Function ParseJsonArray(jsonString, ByRef errorMessage)
+        Dim arrList, regExp, matches, match, value, i
+        Set arrList = CreateObject("Scripting.Dictionary")
+
+        jsonString = Trim(jsonString)
+        If jsonString = "" Then
+            Set ParseJsonArray = BuildErrorJson("Error: Empty JSON array.")
+            Exit Function
+        End If
+
+        Set regExp = New RegExp
+        regExp.Pattern = """?(.*?)""?(,|$)"
+        regExp.Global = True
+        Set matches = regExp.Execute(jsonString)
+
+        If matches.Count = 0 Then
+            Set ParseJsonArray = BuildErrorJson("Error: Malformed JSON array.")
+            Exit Function
+        End If
+
+        i = 0
+        For Each match In matches
+            value = Trim(match.SubMatches(0))
+            arrList(i) = value
+            i = i + 1
+        Next
+
+        Set ParseJsonArray = arrList
+    End Function
+    </script>
+</component>
